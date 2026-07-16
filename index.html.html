@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>人力資源管理體系架構圖｜學習筆記地圖</title>
+<style>
+  :root{
+    --ink:#1a1a1a;
+    --paper:#f7f6f2;
+    --box-bg:#ffffff;
+    --line:#2b2b2b;
+    --accent:#1c6e46;
+    --zone-label:#555;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);
+    font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC","Heiti TC",sans-serif;}
+
+  /* ===== 工具列 ===== */
+  header{
+    position:sticky;top:0;z-index:50;background:#fffdf8;border-bottom:2px solid #222;
+    padding:8px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  }
+  header h1{font-size:16px;margin:0 12px 0 0;letter-spacing:2px;font-weight:800;}
+  header .tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+  button.tbtn{
+    border:1.5px solid #222;background:#fff;border-radius:6px;padding:5px 10px;
+    font-size:13px;cursor:pointer;font-family:inherit;
+  }
+  button.tbtn:hover{background:#f0ede4;}
+  button.tbtn:focus-visible{outline:3px solid #7aa;outline-offset:1px;}
+  #searchInput{
+    border:1.5px solid #222;border-radius:6px;padding:5px 8px;font-size:13px;width:150px;
+    font-family:inherit;background:#fff;
+  }
+  .hint{font-size:12px;color:#666;}
+
+  /* ===== 圖面 ===== */
+  #viewport{overflow:auto;width:100%;height:calc(100vh - 54px);}
+  #scaler{transform-origin:0 0;}
+  #canvas{
+    position:relative;width:1120px;height:1560px;margin:0;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(0,0,0,0.015), transparent 60%),
+      #fbfaf6;
+  }
+  #wires{position:absolute;left:0;top:0;z-index:1;}
+
+  /* 標題與版權（重現原圖文字） */
+  .chart-title{
+    position:absolute;left:265px;top:18px;z-index:2;
+    font-size:34px;font-weight:900;letter-spacing:4px;
+    border-bottom:3px solid #111;padding-bottom:2px;
+  }
+  .chart-credit{
+    position:absolute;left:690px;top:78px;z-index:2;
+    font-size:13.5px;line-height:1.7;color:#222;text-align:left;white-space:nowrap;
+  }
+
+  /* 分區虛線框與標籤 */
+  .zone{
+    position:absolute;border:1.5px dashed #7a7a7a;z-index:1;pointer-events:none;
+    border-radius:2px;
+  }
+  .zone-label{
+    position:absolute;z-index:2;font-size:15px;color:var(--zone-label);
+    letter-spacing:2px;pointer-events:none;font-weight:600;background:transparent;
+  }
+  .badge{
+    position:absolute;z-index:3;width:26px;height:26px;border-radius:50%;
+    background:#111;color:#fff;display:flex;align-items:center;justify-content:center;
+    font-size:14px;font-weight:700;pointer-events:none;box-shadow:1px 1px 0 #999;
+  }
+
+  /* 方框 */
+  .node{
+    position:absolute;z-index:4;background:var(--box-bg);
+    border:2px solid var(--line);border-radius:2px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;cursor:pointer;padding:3px 4px;
+    box-shadow:1.5px 1.5px 0 rgba(0,0,0,.35);
+    transition:transform .08s ease, box-shadow .08s ease, background .15s;
+    font-size:14.5px;line-height:1.35;letter-spacing:1px;
+  }
+  .node:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 rgba(0,0,0,.4);background:#fffef5;}
+  .node:focus-visible{outline:3px solid var(--accent);outline-offset:2px;}
+  .node .b{font-weight:800;}
+  .node.hit{background:#fff3bf;border-color:#b8860b;}
+  .node.dim{opacity:.28;}
+  .node .dot{
+    position:absolute;top:-6px;right:-6px;width:13px;height:13px;border-radius:50%;
+    background:var(--accent);border:2px solid #fff;display:none;
+  }
+  .node.has-note .dot{display:block;}
+
+  /* ===== 筆記視窗 ===== */
+  #overlay{
+    position:fixed;inset:0;background:rgba(20,20,20,.45);z-index:100;
+    display:none;align-items:center;justify-content:center;padding:14px;
+  }
+  #overlay.open{display:flex;}
+  #modal{
+    background:#fffdf7;width:min(720px,100%);max-height:88vh;border:2px solid #222;
+    border-radius:10px;box-shadow:6px 6px 0 rgba(0,0,0,.35);
+    display:flex;flex-direction:column;overflow:hidden;
+  }
+  #modal .mhead{
+    padding:12px 16px;border-bottom:2px solid #222;background:#f3efe3;
+    display:flex;align-items:center;gap:10px;
+  }
+  #modal .mhead .zonechip{
+    font-size:12px;border:1.5px solid #222;border-radius:999px;padding:2px 10px;background:#fff;
+    white-space:nowrap;
+  }
+  #modal .mhead h2{font-size:18px;margin:0;flex:1;letter-spacing:1px;}
+  #modal .mclose{border:none;background:none;font-size:22px;cursor:pointer;line-height:1;padding:4px;}
+  #modal .mbody{padding:14px 16px;overflow:auto;display:flex;flex-direction:column;gap:10px;}
+  #noteArea{
+    width:100%;min-height:180px;border:1.5px solid #999;border-radius:6px;
+    padding:10px;font-size:15px;line-height:1.7;font-family:inherit;resize:vertical;background:#fff;
+  }
+  .phead{
+    display:flex;align-items:center;gap:8px;font-size:14px;font-weight:800;
+    letter-spacing:1px;margin-top:2px;
+  }
+  .phead .ghost{margin-left:auto;padding:4px 10px;font-size:12px;}
+  #presetBox{
+    border:1.5px solid #c9c2ab;border-radius:6px;background:#fbf7ea;
+    padding:12px;font-size:14.5px;line-height:1.8;white-space:pre-wrap;
+    max-height:34vh;overflow:auto;
+  }
+  #modal .mfoot{
+    padding:10px 16px;border-top:1.5px solid #ccc;display:flex;gap:8px;align-items:center;
+    background:#faf8f0;
+  }
+  #saveState{font-size:12.5px;color:var(--accent);margin-left:auto;}
+  .primary{
+    border:2px solid #111;background:#1c6e46;color:#fff;border-radius:6px;
+    padding:7px 16px;font-size:14px;cursor:pointer;font-family:inherit;font-weight:700;
+  }
+  .ghost{
+    border:1.5px solid #555;background:#fff;border-radius:6px;padding:7px 12px;
+    font-size:13px;cursor:pointer;font-family:inherit;
+  }
+  .mtips{font-size:12.5px;color:#777;}
+
+  @media (max-width:640px){
+    header h1{font-size:14px;}
+    #searchInput{width:110px;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .node{transition:none;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>人力資源管理體系架構圖</h1>
+  <div class="tools">
+    <button class="tbtn" id="zoomOut" title="縮小">－</button>
+    <button class="tbtn" id="zoomIn" title="放大">＋</button>
+    <button class="tbtn" id="zoomFit">適合寬度</button>
+    <input id="searchInput" type="search" placeholder="搜尋框框或筆記…" aria-label="搜尋">
+    <button class="tbtn" id="exportBtn">匯出筆記</button>
+    <button class="tbtn" id="importBtn">匯入筆記</button>
+    <input type="file" id="importFile" accept="application/json" hidden>
+    <span class="hint">點任一方框即可撰寫筆記</span>
+  </div>
+</header>
+
+<div id="viewport">
+  <div id="scaler">
+    <div id="canvas">
+      <svg id="wires" width="1120" height="1560" aria-hidden="true">
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#2b2b2b"></path>
+          </marker>
+        </defs>
+        <g id="wireGroup" fill="none" stroke="#2b2b2b" stroke-width="2"></g>
+      </svg>
+
+      <div class="chart-title">人力資源管理體系架構圖</div>
+      <div class="chart-credit">
+        張瑞明&ensp;Copyright © 2016 年版<br>
+        中華人力資源管理協會<br>
+        <span style="padding-left:2.5em">常務顧問&ensp;張瑞明</span>
+      </div>
+      <!-- 分區、徽章、方框由 JS 依資料產生 -->
+    </div>
+  </div>
+</div>
+
+<!-- 筆記視窗 -->
+<div id="overlay" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+  <div id="modal">
+    <div class="mhead">
+      <span class="zonechip" id="mZone">分區</span>
+      <h2 id="mTitle">標題</h2>
+      <button class="mclose" id="mClose" aria-label="關閉">✕</button>
+    </div>
+    <div class="mbody">
+      <div class="phead">📖 內建基礎知識
+        <button class="ghost" id="copyPreset" type="button">複製到我的筆記</button>
+      </div>
+      <div id="presetBox"></div>
+      <div class="phead">✏️ 我的筆記</div>
+      <textarea id="noteArea" placeholder="在這裡寫下你自己的重點、案例、心得……會自動儲存在這台裝置的瀏覽器中。要同步到其他裝置，請用上方「匯出筆記」→ 在另一台裝置「匯入筆記」。"></textarea>
+    </div>
+    <div class="mfoot">
+      <button class="primary" id="saveBtn">儲存筆記</button>
+      <button class="ghost" id="clearBtn">清除此筆記</button>
+      <span id="saveState"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   資料：方框（依原圖位置排版）
+   lines: 文字列；b:true 表示原圖中的粗體列
+============================================================ */
+const BOXES = [
+ // ② 職能管理 / ① 策略管理
+ {id:"core_value",   x:278,y:198,w:132,h:72, zone:"② 職能管理", lines:[{t:"核心價值"},{t:"經營理念"}]},
+ {id:"mission",      x:478,y:196,w:140,h:74, zone:"① 策略管理", lines:[{t:"組織使命"},{t:"組織願景"}]},
+ {id:"comp_model",   x:278,y:306,w:132,h:72, zone:"② 職能管理", lines:[{t:"職能模型"},{t:"職能管理"}]},
+ {id:"strategy_map", x:478,y:306,w:140,h:72, zone:"① 策略管理", lines:[{t:"策略地圖"},{t:"平衡計分卡"}]},
+
+ // ④ 組織設計 / ⑤ 工作設計
+ {id:"org_analysis", x:640,y:468,w:110,h:70, zone:"④ 組織設計", lines:[{t:"組織分析"},{t:"組織設計"}]},
+ {id:"org_structure",x:640,y:558,w:110,h:70, zone:"④ 組織設計", lines:[{t:"組織架構"},{t:"部門職掌"}]},
+ {id:"job_analysis", x:640,y:668,w:110,h:70, zone:"⑤ 工作設計", lines:[{t:"工作分析"},{t:"工作設計"}]},
+ {id:"job_spec",     x:640,y:778,w:110,h:70, zone:"⑤ 工作設計", lines:[{t:"工作說明書"},{t:"工作規範"}]},
+
+ // ③ 績效管理
+ {id:"mbo",          x:56, y:600,w:112,h:46, zone:"③ 績效管理", lines:[{t:"目標管理"}]},
+ {id:"perf_review",  x:46, y:692,w:112,h:46, zone:"③ 績效管理", lines:[{t:"績效評核"}]},
+ {id:"perf_talk",    x:50, y:784,w:112,h:46, zone:"③ 績效管理", lines:[{t:"績效面談"}]},
+
+ // ⑧ 人力資源規劃
+ {id:"hr_planning",  x:230,y:602,w:140,h:42, zone:"⑧ 人力資源規劃", lines:[{t:"人力資源規劃"}]},
+ {id:"manpower",     x:424,y:600,w:112,h:46, zone:"⑧ 人力資源規劃", lines:[{t:"人力盤點"}]},
+
+ // ⑨ 任用管理
+ {id:"recruit",      x:236,y:690,w:130,h:44, zone:"⑨ 任用管理", lines:[{t:"求才、選才"}]},
+ {id:"hire",         x:236,y:792,w:130,h:44, zone:"⑨ 任用管理", lines:[{t:"雇用、導入"}]},
+ {id:"outplace",     x:436,y:756,w:112,h:50, zone:"⑨ 任用管理（安置）", lines:[{t:"向外安置"}]},
+
+ // ⑩ 訓練發展
+ {id:"dev_plan",     x:40, y:878,w:132,h:62, zone:"⑩ 訓練發展", lines:[{t:"員工發展計畫"},{t:"職涯發展計畫"}]},
+ {id:"annual_train", x:40, y:954,w:132,h:58, zone:"⑩ 訓練發展", lines:[{t:"年度訓練計畫"},{t:"訓練學習",b:true}]},
+ {id:"train_system", x:40, y:1028,w:132,h:70, zone:"⑩ 訓練發展", lines:[{t:"訓練體系"},{t:"階層別訓練",b:true},{t:"功能別訓練",b:true}]},
+ {id:"career_path",  x:44, y:1112,w:126,h:60, zone:"⑩ 訓練發展", lines:[{t:"前程路徑"},{t:"升遷制度"}]},
+ {id:"inplace",      x:246,y:950,w:126,h:58, zone:"⑩ 訓練發展", lines:[{t:"向內安置"},{t:"經驗學習",b:true}]},
+ {id:"coaching",     x:248,y:1036,w:126,h:58, zone:"⑩ 訓練發展", lines:[{t:"工作教導"},{t:"人脈學習"}]},
+
+ // ⑥ 薪酬管理
+ {id:"job_eval",     x:572,y:920,w:110,h:46, zone:"⑥ 薪酬管理", lines:[{t:"工作評價"}]},
+ {id:"pay_survey",   x:706,y:920,w:110,h:46, zone:"⑥ 薪酬管理", lines:[{t:"薪資調查"}]},
+ {id:"pay_structure",x:640,y:1036,w:112,h:46, zone:"⑥ 薪酬管理", lines:[{t:"薪資架構"}]},
+ {id:"pay_policy",   x:818,y:1034,w:192,h:46, zone:"⑥ 薪酬管理", lines:[{t:"薪酬政策/薪酬制度"}]},
+ {id:"merit_pay",    x:644,y:1122,w:104,h:62, zone:"⑥ 薪酬管理", lines:[{t:"績效調薪"},{t:"保證所得",b:true}]},
+ {id:"incentive",    x:766,y:1122,w:104,h:62, zone:"⑥ 薪酬管理", lines:[{t:"獎工制度"},{t:"變動所得",b:true}]},
+ {id:"labor_ins",    x:884,y:1122,w:98, h:62, zone:"⑦ 福利管理", lines:[{t:"勞健保與"},{t:"勞退"}]},
+ {id:"welfare_com",  x:998,y:1122,w:100,h:62, zone:"⑦ 福利管理", lines:[{t:"職工福利"},{t:"委員會"}]},
+ {id:"attendance",   x:572,y:1240,w:108,h:44, zone:"⑥ 薪酬管理", lines:[{t:"考勤管理"}]},
+ {id:"payroll",      x:772,y:1236,w:110,h:48, zone:"⑥ 薪酬管理", lines:[{t:"薪資結算"}]},
+ {id:"emp_service",  x:1002,y:1250,w:96,h:44, zone:"⑦ 福利管理", lines:[{t:"員工服務"}]},
+
+ // ⑪ 員工關係
+ {id:"work_env",     x:202,y:1214,w:126,h:58, zone:"⑪ 員工關係", lines:[{t:"工作環境"},{t:"安全衛生"}]},
+ {id:"emp_relation", x:360,y:1210,w:126,h:58, zone:"⑪ 員工關係", lines:[{t:"員工關係"},{t:"勞資關係"}]},
+
+ // ⑫ 離職管理與留才對策
+ {id:"retention",    x:364,y:1342,w:116,h:44, zone:"⑫ 離職管理與留才對策", lines:[{t:"留才對策"}]},
+ {id:"resignation",  x:364,y:1430,w:116,h:44, zone:"⑫ 離職管理與留才對策", lines:[{t:"離職管理"}]},
+];
+
+/* 分區虛線框（近似原圖）與標籤、編號徽章 */
+const ZONES = [
+ {x:240,y:186,w:200,h:212, label:"職能管理", lx:252,ly:376},
+ {x:452,y:186,w:180,h:212, label:"策略管理", lx:508,ly:376},
+ {x:566,y:440,w:534,h:206, label:"組織設計", lx:792,ly:448},
+ {x:566,y:648,w:534,h:216, label:"工作設計", lx:792,ly:656},
+ {x:26, y:560,w:180,h:300, label:"績效管理", lx:32, ly:566},
+ {x:208,y:560,w:352,h:100, label:"人力資源規劃", lx:218,ly:566},
+ {x:208,y:664,w:352,h:200, label:"任用管理", lx:256,ly:748},
+ {x:26, y:866,w:534,h:322, label:"訓練發展", lx:266,ly:1148},
+ {x:566,y:866,w:306,h:436, label:"薪酬管理", lx:586,ly:900},
+ {x:874,y:866,w:226,h:436, label:"福利管理", lx:988,ly:900},
+ {x:26, y:1194,w:534,h:112, label:"員工關係", lx:56, ly:1266},
+ {x:26, y:1312,w:534,h:186, label:"離職管理與留才對策", lx:34,ly:1416},
+];
+
+const BADGES = [
+ {n:"1", x:712,y:312},{n:"2", x:196,y:312},{n:"3", x:64,y:512},{n:"4", x:828,y:518},
+ {n:"5", x:828,y:756},{n:"6", x:598,y:958},{n:"7", x:1022,y:958},{n:"8", x:326,y:512},
+ {n:"9", x:330,y:756},{n:"10",x:340,y:1104},{n:"11",x:84,y:1244},{n:"12",x:96,y:1382},
+];
+
+/* 箭頭連線（依原圖主要流程走向）head: 'end' | 'both' */
+const WIRES = [
+ // 頂層：使命願景 → 核心價值；往下展開
+ {pts:[[478,233],[412,233]]},                       // 組織使命 → 核心價值
+ {pts:[[548,270],[548,306]]},                       // 組織使命 → 策略地圖/BSC
+ {pts:[[344,270],[344,306]]},                       // 核心價值 → 職能模型
+ // 策略地圖往下的主幹與分配線
+ {pts:[[548,378],[548,430]], head:"none"},
+ {pts:[[112,430],[920,430]], head:"none"},          // 水平分配線
+ {pts:[[112,430],[112,600]]},                       // → 目標管理
+ {pts:[[300,430],[300,602]]},                       // → 人力資源規劃
+ {pts:[[480,430],[480,600]]},                       // → 人力盤點
+ {pts:[[695,430],[695,468]]},                       // → 組織分析
+ {pts:[[920,430],[920,1010],[914,1010],[914,1034]]},// 右側幹線 → 薪酬政策/薪酬制度
+ // 組織設計 → 工作設計
+ {pts:[[695,538],[695,558]]},
+ {pts:[[695,628],[695,668]]},
+ {pts:[[695,738],[695,778]]},
+ // 工作說明書 → 薪酬（工作評價、薪資調查）
+ {pts:[[695,848],[695,894],[627,894],[627,920]]},
+ {pts:[[695,894],[761,894],[761,920]]},
+ // 工作說明書 → 往左（任用/訓練，作為選才與訓練依據）
+ {pts:[[640,858],[214,858]]},
+ // 工作評價 + 薪資調查 → 薪資架構
+ {pts:[[627,966],[627,1006],[696,1006],[696,1036]]},
+ {pts:[[761,966],[761,1006],[696,1006]], head:"none"},
+ // 薪酬政策 → 薪資架構
+ {pts:[[818,1057],[752,1057]]},
+ // 薪資架構 → 績效調薪 / 獎工制度
+ {pts:[[696,1082],[696,1122]]},
+ {pts:[[696,1100],[818,1100],[818,1122]]},
+ // 薪酬政策 → 勞健保與勞退 / 職工福利委員會
+ {pts:[[914,1080],[914,1100],[933,1100],[933,1122]]},
+ {pts:[[914,1100],[1048,1100],[1048,1122]]},
+ // → 薪資結算
+ {pts:[[696,1184],[696,1218],[800,1218],[800,1236]]},   // 績效調薪 →
+ {pts:[[818,1184],[827,1184],[827,1236]]},              // 獎工制度 →
+ {pts:[[933,1184],[933,1218],[856,1218],[856,1236]]},   // 勞健保 →
+ {pts:[[680,1262],[772,1262]]},                         // 考勤管理 →
+ // 職工福利委員會 → 員工服務
+ {pts:[[1048,1184],[1050,1250]]},
+ // 目標管理 ↔ 人力資源規劃
+ {pts:[[168,623],[230,623]], head:"both"},
+ // 績效管理鏈
+ {pts:[[104,646],[104,692]]},
+ {pts:[[104,738],[104,784]]},
+ {pts:[[104,830],[104,878]]},                          // 績效面談 → 員工發展計畫
+ // 人力資源規劃 → 人力盤點、求才選才
+ {pts:[[370,622],[424,622]]},
+ {pts:[[300,644],[300,690]]},
+ {pts:[[300,734],[300,792]]},                          // 求才選才 → 雇用導入
+ // 雇用導入 → 向內安置 → 工作教導
+ {pts:[[302,836],[302,950]]},
+ {pts:[[309,1008],[309,1036]]},
+ // 訓練發展鏈
+ {pts:[[106,940],[106,954]]},
+ {pts:[[106,1012],[106,1028]]},
+ {pts:[[106,1098],[106,1112]]},
+ // 人力盤點 → 向外安置；下方回流 → 向外安置
+ {pts:[[490,646],[490,756]]},
+ {pts:[[492,1194],[492,808]]},                         // 由下而上（留才/離職回流）
+ // 離職管理 → 留才對策 → 員工關係
+ {pts:[[422,1430],[422,1386]]},
+ {pts:[[422,1342],[422,1268]]},
+];
+
+/* ============================================================
+   繪製
+============================================================ */
+const canvas = document.getElementById("canvas");
+const wireGroup = document.getElementById("wireGroup");
+
+ZONES.forEach(z=>{
+  const d=document.createElement("div");
+  d.className="zone";
+  d.style.cssText=`left:${z.x}px;top:${z.y}px;width:${z.w}px;height:${z.h}px;`;
+  canvas.appendChild(d);
+  const l=document.createElement("div");
+  l.className="zone-label"; l.textContent=z.label;
+  l.style.cssText=`left:${z.lx}px;top:${z.ly}px;`;
+  canvas.appendChild(l);
+});
+
+BADGES.forEach(b=>{
+  const d=document.createElement("div");
+  d.className="badge"; d.textContent=b.n;
+  d.style.cssText=`left:${b.x}px;top:${b.y}px;`;
+  canvas.appendChild(d);
+});
+
+WIRES.forEach(w=>{
+  const p=document.createElementNS("http://www.w3.org/2000/svg","polyline");
+  p.setAttribute("points", w.pts.map(pt=>pt.join(",")).join(" "));
+  if(w.head!=="none") p.setAttribute("marker-end","url(#arr)");
+  if(w.head==="both") p.setAttribute("marker-start","url(#arr)");
+  wireGroup.appendChild(p);
+});
+
+/* ============================================================
+   內建基礎知識（37 個框框）
+============================================================ */
+const PRESET = {
+core_value:`【定義】核心價值是組織成員共同信守的信念與行為準則；經營理念是經營者對「為何經營、如何經營」的基本主張。
+【重點】
+・是所有 HR 制度的最上位依據：職能模型、選才標準、績效構面、獎酬導向都應與之對齊
+・常見載體：企業文化宣言、行為準則（Code of Conduct）、標語與故事
+【實務】
+・招募面談加入價值觀適配（Culture Fit）提問
+・新人訓練必含理念與文化課程；主管以身作則是落實關鍵
+・違反核心價值的行為應反映在考核與紀律管理，制度才有公信力`,
+
+mission:`【定義】使命（Mission）回答「我們為何存在」；願景（Vision）回答「我們未來要成為什麼樣子」。
+【重點】
+・是策略規劃的起點，向下展開為策略目標、策略地圖與平衡計分卡
+・好的使命：簡潔、聚焦顧客價值；好的願景：具體、有時間感、能激勵人心
+【HR 角色】
+・協助內部溝通與滲透，讓部門與個人目標和組織方向串聯
+・雇主品牌（EVP）的訴求應與使命願景一致，對外招募才有說服力`,
+
+comp_model:`【定義】職能（Competency）是造成優異績效的知識、技能、態度與人格特質的組合。
+【職能模型常見分類】
+・核心職能：全員共同（源自核心價值）
+・管理職能：各級主管
+・專業／功能職能：各職系專業能力
+【建置流程】訪談高績效者 → 行為事例分析 → 定義職能項目與分級行為指標
+【應用】選才（行為事例面談 BEI）、訓練發展（職能落差分析）、績效評核行為構面、升遷與接班人評鑑`,
+
+strategy_map:`【定義】平衡計分卡（BSC，Kaplan & Norton）從財務、顧客、內部流程、學習成長四構面，把策略轉化為可衡量的目標與指標（KPI）；策略地圖以因果關係圖呈現四構面目標的連結。
+【重點】
+・學習成長構面是 HR 的主戰場：人力資本（職能）、資訊資本、組織資本（文化、領導）
+・由公司 BSC 逐層展開至部門、個人目標，與目標管理（MBO／OKR）銜接
+【實務】指標寧少而精，且要能對應策略；每季檢視，避免淪為表格作業`,
+
+org_analysis:`【定義】組織分析是檢視組織現況（策略、流程、人力、文化）找出設計問題；組織設計是決定分工與協調方式。
+【常見組織結構】功能式、事業部式、矩陣式、專案式、扁平／網絡式
+【設計原則】
+・專業分工、指揮統一、控制幅度適當、權責對等
+・部門化方式：依功能、產品、地區或顧客
+【實務】組織調整需同步規劃編制員額、人力移轉與溝通配套，並更新架構圖與職掌`,
+
+org_structure:`【定義】組織架構圖呈現部門層級與從屬關係；部門職掌書明定各部門的任務、權責與分工界面。
+【目的】避免權責不清、重複作業與三不管地帶。
+【撰寫要點】
+・任務條列化、動詞開頭；註明決行權限（搭配簽核權限表）
+・界定跨部門介面與主辦／協辦關係
+【實務】是工作分析與人力盤點的上位文件；組織調整後必須同步更新，並公告周知`,
+
+job_analysis:`【定義】工作分析：有系統地蒐集職務的工作內容（任務、職責）與任職資格（知識、技能、能力）資訊的過程。
+【方法】訪談法、問卷法、觀察法、工作日誌法、重要事件法
+【產出】工作說明書＋工作規範
+【工作設計】決定職務內容如何組合：
+・工作簡化、工作擴大化、工作豐富化、工作輪調
+・工作特徵模式（JCM）五構面：技能多樣性、任務完整性、任務重要性、自主性、回饋性`,
+
+job_spec:`【定義】工作說明書（Job Description）記載職稱、部門、彙報關係、工作摘要、主要職責、績效標準與工作環境；工作規範（Job Specification）記載任職資格：學經歷、證照、知識技能與職能特質。
+【用途】招募甄選依據、訓練需求分析、工作評價與薪資設計、績效標準訂定。
+【要點】
+・職責以動詞開頭條列，寫「做什麼、為了什麼結果」
+・定期檢視更新（組織或流程改變時）；避免過度細碎綁死彈性`,
+
+mbo:`【定義】目標管理（MBO，Drucker）：主管與部屬共同設定目標、自我控制、以成果進行評價。
+【SMART 原則】具體 Specific、可衡量 Measurable、可達成 Achievable、相關聯 Relevant、有期限 Time-bound
+【OKR 補充】目標（O）具企圖心、關鍵成果（KR）可量化；強調透明公開、高頻檢視，與考績弱連結
+【實務】
+・目標由公司→部門→個人逐層串聯，對齊策略地圖
+・期中檢視、滾動修正，避免年初訂完年底才看`,
+
+perf_review:`【定義】績效評核：定期衡量員工工作成果與行為表現的制度。
+【常見方法】圖表評等法、強迫分配、關鍵事件法、行為定錨量表（BARS）、360 度回饋、KPI／OKR 成果評核
+【常見偏誤】月暈效果、寬鬆／嚴苛傾向、趨中傾向、近因效果、對比效果
+【設計要點】
+・評核構面＝成果（KPI）＋行為（職能），比重依職位調整
+・評核者訓練與校準會議（Calibration）是公平性關鍵
+・結果連結獎酬與發展，但避免單一分數決定一切`,
+
+perf_talk:`【定義】績效面談：主管與部屬就評核結果進行雙向溝通，目的是回饋、發展與共識，而不是「宣判分數」。
+【技巧】
+・事前準備具體行為事例；聚焦行為而非人格
+・先聽部屬自評與觀點，再給回饋；共同訂定改善與發展計畫（IDP）
+・做成紀錄並定期追蹤
+【低績效處理】啟動績效改善計畫（PIP）：明確標準、期限、輔導與資源。台灣法院實務要求解僱符合「最後手段性原則」，PIP 紀錄是關鍵佐證`,
+
+hr_planning:`【定義】人力資源規劃：依據經營策略，預測未來人力需求與供給，規劃行動方案，使組織「適時、適地、適質、適量」獲得所需人力。
+【步驟】
+1. 分析經營計畫與環境
+2. 人力需求預測（趨勢分析、比例法、主管判斷）
+3. 內部供給分析（人力盤點、接班梯隊、流動率）
+4. 供需差距分析
+5. 行動方案：招募、訓練、調配、精簡、外包
+【產出】年度人力計畫、編制員額表、人事費預算`,
+
+manpower:`【定義】人力盤點：盤查現有人力的數量與品質。
+【盤點內容】
+・數量結構：人數、年齡、年資、學歷分布
+・品質面：職能水準、績效分布
+・關鍵職位與接班人、冗餘與缺口
+【工具】HRIS 人事系統報表、職能評鑑、人才九宮格（績效 × 潛力）
+【應用】人力規劃、訓練需求、晉升調派、組織精簡的依據。建議每年至少一次，配合預算與組織檢討時程`,
+
+recruit:`【求才（招募）】吸引足量合格候選人。管道：內部晉升調任、員工推薦、求職網站、校園徵才、獵才、社群經營（雇主品牌）。
+【選才（甄選）】工具：履歷篩選、筆試、結構化面談（STAR 行為面談）、職能測評、實作測驗、資歷查核（Reference Check）。
+【效標】信度與效度——甄選工具必須能預測未來工作績效。
+【台灣法規】就業服務法第 5 條禁止就業歧視（年齡、性別、婚姻、容貌等 18 項）；不得要求與工作無關的隱私資料；求職簡章不得有歧視性條件`,
+
+hire:`【雇用】發出錄取通知（Offer）、議定勞動條件、簽訂勞動契約。
+【法規重點】
+・勞動契約以不定期為原則（勞基法§9）；試用期約定應合理
+・薪資不得低於基本工資；到職當日投保勞健保、提繳勞退 6%
+【導入（Onboarding）】
+・報到手續、環境與制度介紹、指派導師（Mentor／Buddy）
+・設計 90 天適應計畫與定期關懷面談
+・良好導入能大幅降低新人早期離職率，是留才的第一關`,
+
+outplace:`【定義】向外安置（Outplacement）：組織因精簡、關廠或個人不適任，協助員工轉往外部就業的措施——轉職輔導、履歷與面試教練、職缺介紹。
+【台灣法規】
+・資遣預告期間（勞基法§16：3 個月以上依年資 10／20／30 日）與謀職假
+・資遣費：新制每滿 1 年 0.5 個月平均工資，上限 6 個月（勞退條例§12）
+・就業服務法：資遣通報應於員工離職前 10 日辦理
+・達一定人數適用大量解僱勞工保護法（解僱計畫書）
+【意義】展現企業社會責任、維護雇主品牌`,
+
+dev_plan:`【定義】員工發展計畫：提升現職與未來職務所需能力；職涯發展計畫：協助員工規劃長期職涯路徑。
+【工具】個人發展計畫（IDP）、職涯晤談、職涯路徑圖、輪調歷練、接班人計畫（Succession Plan）
+【70-20-10 法則】
+・70%：工作歷練（新任務、專案、輪調）
+・20%：人際學習（教練、導師、回饋）
+・10%：課堂與線上課程
+【要點】主管是員工發展的第一責任人，HR 提供制度與資源；發展重點應與人才九宮格結果連動`,
+
+annual_train:`【流程】訓練需求分析 → 訂定目標 → 課程設計與預算 → 執行 → 成效評估。
+【需求分析三層次】
+・組織面：策略與年度重點需要什麼能力
+・工作面：職能標準與現況的落差
+・個人面：IDP 與績效面談回饋
+【成效評估】Kirkpatrick 四層次：反應（滿意度）→ 學習（測驗）→ 行為（回到工作）→ 成果（績效指標）
+【台灣資源】勞動部「企業人力資源提升計畫」訓練補助；TTQS 人才發展品質管理系統可作為訓練體系品質架構`,
+
+train_system:`【定義】訓練體系：企業訓練的整體架構，通常依對象「分層、分類」設計。
+【階層別訓練】新進人員 → 基層人員 → 基層主管 → 中階主管 → 高階主管，各階段對應管理職能課程（如新任主管訓）
+【功能別訓練】業務、生產、品保、財務、資訊等各專業職系課程
+【其他】核心職能訓練（全員）、自我發展（語言、數位學習）
+【要點】對應職能模型；為每個職位訂出必修／選修的學習地圖（Learning Map），並與晉升條件結合`,
+
+career_path:`【前程路徑】明示員工在組織內的發展路線。
+【雙軌制】管理職（M 職系）與專業職（P 職系）並行——不想帶人的專才也有升遷空間與相應薪酬，是留住技術人才的關鍵設計。
+【升遷制度要點】
+・明定各職等晉升條件：年資、績效等第、職能評鑑、必修訓練、考試或口試
+・程序公開透明，結合人才盤點與接班人計畫
+・內部優先晉升有助士氣與留才，但應保留外補彈性避免近親繁殖`,
+
+inplace:`【定義】向內安置：組織內部的人力再配置——晉升、平調、輪調、降調與職務再設計。常用於組織調整、人力盤點後補缺口，或不適任處理的先行措施（解僱前的安置義務）。
+【經驗學習】透過輪調與新任務指派，讓員工在實作中成長（70-20-10 的 70）。
+【法規】調動應符合勞基法§10-1「調動五原則」：
+1. 基於企業經營必要且無不當動機
+2. 工資及其他勞動條件未作不利變更
+3. 體能與技術可勝任
+4. 地點過遠應提供必要協助
+5. 考量勞工及其家庭生活利益`,
+
+coaching:`【工作教導（OJT）】主管或資深者在工作現場示範、指導、回饋。
+【經典四階段法（TWI-JI）】
+1. 說給他聽（講解要點）
+2. 做給他看（示範）
+3. 讓他做做看（練習並說出要點）
+4. 檢視成效並回饋
+【人脈學習】導師制（Mentoring）、教練（Coaching）、讀書會與社群共學、跨部門專案——累積人際網絡與隱性知識（70-20-10 的 20）。
+【要點】教導者要先受訓；建立教導計畫與紀錄，納入主管職責與考核`,
+
+job_eval:`【定義】工作評價：衡量各「職務」的相對價值，作為職等與薪資結構的基礎，確保內部公平。評的是「事」，不是「人」。
+【方法】
+・排列法：職務兩兩比較排序（適合小組織）
+・分類法：套入預先定義的職等說明
+・因素比較法：依報酬因素逐一比較
+・點數法（最常用）：選定報酬因素（知識技能、解決問題、責任、工作環境等），逐項評分加總
+【國際實務】海氏（Hay）三因素法：知能、解決問題、應負責任
+【產出】職等結構（Job Grades）`,
+
+pay_survey:`【定義】薪資調查：蒐集外部市場薪資行情，確保薪資的外部競爭力。
+【來源】
+・顧問公司調查報告（Mercer、WTW 韋萊韜悅等）
+・同業薪資交流、政府統計（主計總處薪情平臺、勞動部職類別薪資調查）
+【要點】
+・以工作內容對標（Job Matching），不能只比職稱
+・關注 P25／P50／P75 分位值；區分保證薪資與總獎酬
+・依結果訂定薪資政策線：領先（Lead）、跟隨（Match）或落後（Lag）市場`,
+
+pay_structure:`【定義】薪資架構：結合工作評價（內部公平）與薪資調查（外部競爭力）設計的職等薪幅表。
+【要素】
+・職等數與各職等薪資中位數（Midpoint）
+・薪幅範圍（Range Spread，常見 40%～80%）
+・相鄰職等重疊度、薪級級距
+【管理工具】CR 值（Compa-Ratio＝個人薪資 ÷ 中位數），判斷個人薪資在薪幅中的位置
+【薪資組成】本薪＋津貼（保證所得）＋獎金（變動所得）；職位越高，變動比例通常越大`,
+
+pay_policy:`【定義】薪酬政策／制度：薪酬管理的最高指導原則。
+【內涵】總獎酬（Total Rewards）定位、市場競爭策略（領先／跟隨／落後）、固定與變動薪比例、調薪原則、薪資保密或透明政策。
+【四大公平】
+・外部公平：薪資調查
+・內部公平：工作評價
+・個人公平：績效調薪
+・程序公平：制度透明、有申訴管道
+【台灣法規底線】基本工資（每年審議）；性別平等工作法同工同酬；「工資」定義（經常性給與）影響加班費、平均工資與退休金基礎`,
+
+merit_pay:`【定義】績效調薪（Merit Pay）：依個人績效評核結果調整本薪，屬「保證所得」——調升後成為經常性給與。
+【工具】調薪矩陣（Merit Matrix）：以「績效等第 × CR 值」決定調幅——績效優且薪資偏低者調幅最大，維持薪幅健康。
+【其他調薪】整體調薪（反映物價與基本工資）、晉升調薪、市場行情個案調整。
+【法規注意】工資屬勞動條件，調降須勞工同意；經常性給與計入平均工資，影響加班費、資遣費與退休金計算`,
+
+incentive:`【定義】獎工制度：與績效連動的「變動所得」，不隨年資自動延續。
+【類型】
+・個人：業績獎金、計件獎金、專案獎金
+・團體：部門績效獎金、利潤分享（Profit Sharing）
+・長期：員工認股權、限制型股票（留才用）
+【設計要點】指標明確可衡量、目標有挑戰但可達成、發放及時、避免單一指標引導偏差行為。
+【法規注意】若屬經常性、制度性發放，可能被認定為工資，計入平均工資與加班費基礎；設計時應明確定義發放條件`,
+
+labor_ins:`【法定保險】
+・勞工保險：普通事故保險（生育、傷病、失能、老年、死亡給付）
+・勞工職業災害保險（2022 年單獨立法）：到職當日即應加保，不受僱用人數限制
+・全民健康保險、就業保險（失業給付、育嬰留職停薪津貼）
+【勞工退休金（新制）】雇主每月提繳不低於工資 6% 至勞工個人專戶（勞退條例）；勞工可自願提繳 6% 以內（免稅）。
+【實務重點】投保（提繳）薪資應覈實申報——高薪低報有罰鍰並須賠償勞工損失；到職加保、離職退保日期要精確`,
+
+welfare_com:`【法源】職工福利金條例：公司組織之廠礦或平時僱用職工 50 人以上，應成立職工福利委員會並提撥福利金。
+【福利金來源】
+・創立時實收資本額 1%～5%
+・每月營業收入總額 0.05%～0.15%
+・每月職工薪津各 0.5% 以內（員工自付）
+・下腳變賣收入 20%～40%
+【運作】福委會為獨立組織，帳務與公司分開；福利金支用需經委員會決議。常見項目：三節禮金、社團補助、旅遊、生日禮、急難救助`,
+
+attendance:`【定義】考勤管理：出勤、加班、請假的紀錄與管理，是薪資結算與勞動檢查的核心依據。
+【法規重點】
+・出勤紀錄應逐日記載至「分鐘」，保存 5 年（勞基法§30）
+・工時上限：每日正常 8 小時、每週 40 小時；連同加班每日不得超過 12 小時
+・加班上限：每月 46 小時（經工會或勞資會議同意，可彈性至單月 54 小時、3 個月 138 小時）
+・請假依勞工請假規則；性別平等工作法另有生理假、產假、陪產檢及陪產假、家庭照顧假等`,
+
+payroll:`【定義】薪資結算：依考勤與獎懲資料計算每期應發薪資。
+【計算項目】本薪＋津貼＋加班費－請假扣款－代扣項目（勞健保自付額、勞退自提、所得稅、福利金）。
+【加班費倍率（勞基法§24）】平日延長工時前 2 小時 ×1⅓、再 2 小時 ×1⅔；休息日出勤另有加成規定。
+【法規重點】
+・工資應全額、直接、定期給付，並提供各項目計算方式明細（薪資單）
+・基本工資合規檢查；獎金的二代健保補充保費處理
+【實務】建立製薪覆核機制（雙人核對），避免溢發短發`,
+
+emp_service:`【定義】員工服務：由福委會或 HR 提供的生活支持措施。
+【常見項目】員工餐廳、交通車、宿舍、社團活動、健康檢查、旅遊補助。
+【法規相關】
+・僱用 100 人以上：依性別平等工作法應提供哺（集）乳室與托兒設施或措施（有政府補助）
+・職業安全衛生法：一般健康檢查與特殊作業健檢
+【趨勢】員工協助方案（EAP）：心理諮商、法律與財務諮詢、壓力管理——照顧身心健康，提升敬業度，也是雇主品牌的一環`,
+
+work_env:`【法源】職業安全衛生法（適用所有行業受僱者）。
+【雇主義務】
+・提供必要的安全衛生設備與措施；訂定安全衛生工作守則
+・辦理安全衛生教育訓練；實施健康檢查與分級健康管理
+・一定規模以上應設職安衛管理單位／人員
+【四大計畫（近年勞檢重點）】
+・異常工作負荷促發疾病預防（過勞防治）
+・人因性危害預防（肌肉骨骼傷害）
+・執行職務遭受不法侵害預防（職場暴力）
+・母性健康保護
+【責任】發生職災可能涉及刑事、行政與民事賠償責任`,
+
+emp_relation:`【員工關係】日常溝通、申訴管道、紀律管理、敬業度經營。
+【勞資關係（集體層面）】
+・勞動三法：工會法、團體協約法、勞資爭議處理法（調解、仲裁、裁決）
+【法定機制】
+・僱用 30 人以上應訂立工作規則並報主管機關核備
+・應舉辦勞資會議；許多彈性工時、加班制度須經勞資會議同意才合法
+・性騷擾防治：2023 年性平三法修法後，申訴、調查與處理義務大幅強化
+【實務】定期敬業度調查、暢通申訴管道、離職與留任數據分析`,
+
+retention:`【定義】留才對策：針對關鍵人才與高離職風險族群設計的留任措施。
+【診斷工具】離職面談資料分析、敬業度調查、留任面談（Stay Interview）、人才九宮格辨識關鍵人才。
+【對策組合】
+・具競爭力的總獎酬與長期激勵（限制型股票、留任獎金）
+・發展機會與清楚的職涯路徑
+・彈性工作與友善職場
+・主管領導品質——「員工加入公司，卻因主管而離開」
+【指標】整體／主動離職率、關鍵人才留任率、新人 90 天留任率`,
+
+resignation:`【定義】離職管理：處理自請離職、資遣、退休、解僱等各類離退情形。
+【流程要點】
+・離職面談：蒐集真實離職原因，回饋制度改善
+・工作交接清單；門禁與系統帳號權限即時關閉
+・勞健保退保、勞退停繳；非自願離職應開立非自願離職證明（申請失業給付用）並辦理資遣通報
+【法規】競業禁止條款須符合勞基法§9-1 四要件且提供合理補償，否則無效。
+【循環】離職數據與原因分析應回饋至「留才對策」，形成管理循環（對應本圖⑫→⑪的走向）`,
+};
+
+const NOTE_KEY="hr_map_notes_v1";
+let notes={};
+try{ notes=JSON.parse(localStorage.getItem(NOTE_KEY)||"{}"); }catch(e){ notes={}; }
+
+const nodeEls={};
+BOXES.forEach(b=>{
+  const d=document.createElement("div");
+  d.className="node"; d.tabIndex=0; d.setAttribute("role","button");
+  d.dataset.id=b.id;
+  d.style.cssText=`left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px;`;
+  d.innerHTML = b.lines.map(l=>`<span class="${l.b?'b':''}">${l.t}</span>`).join("")
+              + `<span class="dot" aria-hidden="true"></span>`;
+  d.setAttribute("aria-label", b.lines.map(l=>l.t).join("") + "，點擊開啟筆記");
+  d.addEventListener("click",()=>openModal(b));
+  d.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){e.preventDefault();openModal(b);} });
+  canvas.appendChild(d);
+  nodeEls[b.id]=d;
+  refreshDot(b.id);
+});
+
+function refreshDot(id){
+  nodeEls[id].classList.toggle("has-note", !!(notes[id]&&notes[id].trim()));
+}
+
+/* ============================================================
+   筆記視窗
+============================================================ */
+const overlay=document.getElementById("overlay");
+const mTitle=document.getElementById("mTitle");
+const mZone=document.getElementById("mZone");
+const noteArea=document.getElementById("noteArea");
+const saveState=document.getElementById("saveState");
+let currentId=null, autoTimer=null;
+
+const presetBox=document.getElementById("presetBox");
+function openModal(b){
+  currentId=b.id;
+  mTitle.textContent=b.lines.map(l=>l.t).join("／");
+  mZone.textContent=b.zone;
+  presetBox.textContent=PRESET[b.id]||"（此主題尚無內建內容）";
+  noteArea.value=notes[b.id]||"";
+  saveState.textContent="";
+  overlay.classList.add("open");
+}
+document.getElementById("copyPreset").addEventListener("click",()=>{
+  if(!currentId) return;
+  const p=PRESET[currentId]||"";
+  noteArea.value = noteArea.value.trim() ? noteArea.value.replace(/\s+$/,"")+"\n\n"+p : p;
+  saveNote(true);
+});
+function closeModal(){
+  overlay.classList.remove("open");
+  currentId=null;
+}
+function saveNote(silent){
+  if(!currentId) return;
+  notes[currentId]=noteArea.value;
+  localStorage.setItem(NOTE_KEY, JSON.stringify(notes));
+  refreshDot(currentId);
+  saveState.textContent= silent ? "已自動儲存 ✓" : "已儲存 ✓";
+}
+noteArea.addEventListener("input",()=>{
+  clearTimeout(autoTimer);
+  autoTimer=setTimeout(()=>saveNote(true),800);
+});
+document.getElementById("saveBtn").addEventListener("click",()=>saveNote(false));
+document.getElementById("clearBtn").addEventListener("click",()=>{
+  if(!currentId) return;
+  if(confirm("確定要清除這個框框的筆記嗎？")){
+    noteArea.value=""; saveNote(false);
+  }
+});
+document.getElementById("mClose").addEventListener("click",()=>{saveNote(true);closeModal();});
+overlay.addEventListener("click",e=>{ if(e.target===overlay){saveNote(true);closeModal();} });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&overlay.classList.contains("open")){saveNote(true);closeModal();} });
+
+/* ============================================================
+   搜尋（比對框框文字與筆記內容）
+============================================================ */
+document.getElementById("searchInput").addEventListener("input",e=>{
+  const q=e.target.value.trim();
+  BOXES.forEach(b=>{
+    const el=nodeEls[b.id];
+    el.classList.remove("hit","dim");
+    if(!q) return;
+    const text=b.lines.map(l=>l.t).join("")+(PRESET[b.id]||"")+(notes[b.id]||"");
+    if(text.includes(q)) el.classList.add("hit"); else el.classList.add("dim");
+  });
+});
+
+/* ============================================================
+   匯出 / 匯入（跨裝置同步筆記）
+============================================================ */
+document.getElementById("exportBtn").addEventListener("click",()=>{
+  const blob=new Blob([JSON.stringify(notes,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  const d=new Date(), pad=n=>String(n).padStart(2,"0");
+  a.download=`HR學習筆記_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.json`;
+  a.click(); URL.revokeObjectURL(a.href);
+});
+document.getElementById("importBtn").addEventListener("click",()=>document.getElementById("importFile").click());
+document.getElementById("importFile").addEventListener("change",e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const data=JSON.parse(r.result);
+      if(typeof data!=="object"||Array.isArray(data)) throw 0;
+      notes={...notes,...data};
+      localStorage.setItem(NOTE_KEY,JSON.stringify(notes));
+      BOXES.forEach(b=>refreshDot(b.id));
+      alert("筆記匯入完成！");
+    }catch(err){ alert("檔案格式不正確，請選擇先前匯出的 JSON 筆記檔。"); }
+  };
+  r.readAsText(f); e.target.value="";
+});
+
+/* ============================================================
+   縮放
+============================================================ */
+let scale=1;
+const scaler=document.getElementById("scaler");
+function applyScale(){
+  scaler.style.transform=`scale(${scale})`;
+  scaler.style.width=(1120*scale)+"px";
+  scaler.style.height=(1560*scale)+"px";
+}
+document.getElementById("zoomIn").addEventListener("click",()=>{scale=Math.min(2,scale+0.1);applyScale();});
+document.getElementById("zoomOut").addEventListener("click",()=>{scale=Math.max(0.3,scale-0.1);applyScale();});
+function fitWidth(){
+  const vw=document.getElementById("viewport").clientWidth;
+  scale=Math.min(1.6, Math.max(0.3,(vw-8)/1120));
+  applyScale();
+}
+document.getElementById("zoomFit").addEventListener("click",fitWidth);
+window.addEventListener("resize",()=>{ /* 保留使用者縮放，不自動改變 */ });
+fitWidth();
+</script>
+</body>
+</html>

@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>人力資源管理體系架構圖｜學習筆記地圖</title>
+<style>
+  :root{
+    --ink:#1a1a1a;
+    --paper:#f7f6f2;
+    --box-bg:#ffffff;
+    --line:#2b2b2b;
+    --accent:#1c6e46;
+    --zone-label:#555;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);
+    font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC","Heiti TC",sans-serif;}
+
+  /* ===== 工具列 ===== */
+  header{
+    position:sticky;top:0;z-index:50;background:#fffdf8;border-bottom:2px solid #222;
+    padding:8px 12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  }
+  header h1{font-size:16px;margin:0 12px 0 0;letter-spacing:2px;font-weight:800;}
+  header .tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+  button.tbtn{
+    border:1.5px solid #222;background:#fff;border-radius:6px;padding:5px 10px;
+    font-size:13px;cursor:pointer;font-family:inherit;
+  }
+  button.tbtn:hover{background:#f0ede4;}
+  button.tbtn:focus-visible{outline:3px solid #7aa;outline-offset:1px;}
+  #searchInput{
+    border:1.5px solid #222;border-radius:6px;padding:5px 8px;font-size:13px;width:150px;
+    font-family:inherit;background:#fff;
+  }
+  .hint{font-size:12px;color:#666;}
+
+  /* ===== 圖面 ===== */
+  #viewport{overflow:auto;width:100%;height:calc(100vh - 54px);}
+  #scaler{transform-origin:0 0;}
+  #canvas{
+    position:relative;width:1120px;height:1560px;margin:0;
+    background:
+      radial-gradient(circle at 30% 20%, rgba(0,0,0,0.015), transparent 60%),
+      #fbfaf6;
+  }
+  #wires{position:absolute;left:0;top:0;z-index:1;}
+
+  /* 標題與版權（重現原圖文字） */
+  .chart-title{
+    position:absolute;left:265px;top:18px;z-index:2;
+    font-size:34px;font-weight:900;letter-spacing:4px;
+    border-bottom:3px solid #111;padding-bottom:2px;
+  }
+  .chart-credit{
+    position:absolute;left:690px;top:78px;z-index:2;
+    font-size:13.5px;line-height:1.7;color:#222;text-align:left;white-space:nowrap;
+  }
+
+  /* 分區虛線框與標籤 */
+  .zone{
+    position:absolute;border:1.5px dashed #7a7a7a;z-index:1;pointer-events:none;
+    border-radius:2px;
+  }
+  .zone-label{
+    position:absolute;z-index:2;font-size:15px;color:var(--zone-label);
+    letter-spacing:2px;pointer-events:none;font-weight:600;background:transparent;
+  }
+  .badge{
+    position:absolute;z-index:3;width:26px;height:26px;border-radius:50%;
+    background:#111;color:#fff;display:flex;align-items:center;justify-content:center;
+    font-size:14px;font-weight:700;pointer-events:none;box-shadow:1px 1px 0 #999;
+  }
+
+  /* 方框 */
+  .node{
+    position:absolute;z-index:4;background:var(--box-bg);
+    border:2px solid var(--line);border-radius:2px;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;cursor:pointer;padding:3px 4px;
+    box-shadow:1.5px 1.5px 0 rgba(0,0,0,.35);
+    transition:transform .08s ease, box-shadow .08s ease, background .15s;
+    font-size:14.5px;line-height:1.35;letter-spacing:1px;
+  }
+  .node:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 rgba(0,0,0,.4);background:#fffef5;}
+  .node:focus-visible{outline:3px solid var(--accent);outline-offset:2px;}
+  .node .b{font-weight:800;}
+  .node.hit{background:#fff3bf;border-color:#b8860b;}
+  .node.dim{opacity:.28;}
+  .node .dot{
+    position:absolute;top:-6px;right:-6px;width:13px;height:13px;border-radius:50%;
+    background:var(--accent);border:2px solid #fff;display:none;
+  }
+  .node.has-note .dot{display:block;}
+
+  /* ===== 筆記視窗 ===== */
+  #overlay{
+    position:fixed;inset:0;background:rgba(20,20,20,.45);z-index:100;
+    display:none;align-items:center;justify-content:center;padding:14px;
+  }
+  #overlay.open{display:flex;}
+  #modal{
+    background:#fffdf7;width:min(720px,100%);max-height:88vh;border:2px solid #222;
+    border-radius:10px;box-shadow:6px 6px 0 rgba(0,0,0,.35);
+    display:flex;flex-direction:column;overflow:hidden;
+  }
+  #modal .mhead{
+    padding:12px 16px;border-bottom:2px solid #222;background:#f3efe3;
+    display:flex;align-items:center;gap:10px;
+  }
+  #modal .mhead .zonechip{
+    font-size:12px;border:1.5px solid #222;border-radius:999px;padding:2px 10px;background:#fff;
+    white-space:nowrap;
+  }
+  #modal .mhead h2{font-size:18px;margin:0;flex:1;letter-spacing:1px;}
+  #modal .mclose{border:none;background:none;font-size:22px;cursor:pointer;line-height:1;padding:4px;}
+  #modal .mbody{padding:14px 16px;overflow:auto;display:flex;flex-direction:column;gap:10px;}
+  #noteArea{
+    width:100%;min-height:260px;border:1.5px solid #999;border-radius:6px;
+    padding:10px;font-size:15px;line-height:1.7;font-family:inherit;resize:vertical;background:#fff;
+  }
+  #modal .mfoot{
+    padding:10px 16px;border-top:1.5px solid #ccc;display:flex;gap:8px;align-items:center;
+    background:#faf8f0;
+  }
+  #saveState{font-size:12.5px;color:var(--accent);margin-left:auto;}
+  .primary{
+    border:2px solid #111;background:#1c6e46;color:#fff;border-radius:6px;
+    padding:7px 16px;font-size:14px;cursor:pointer;font-family:inherit;font-weight:700;
+  }
+  .ghost{
+    border:1.5px solid #555;background:#fff;border-radius:6px;padding:7px 12px;
+    font-size:13px;cursor:pointer;font-family:inherit;
+  }
+  .mtips{font-size:12.5px;color:#777;}
+
+  @media (max-width:640px){
+    header h1{font-size:14px;}
+    #searchInput{width:110px;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .node{transition:none;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>人力資源管理體系架構圖</h1>
+  <div class="tools">
+    <button class="tbtn" id="zoomOut" title="縮小">－</button>
+    <button class="tbtn" id="zoomIn" title="放大">＋</button>
+    <button class="tbtn" id="zoomFit">適合寬度</button>
+    <input id="searchInput" type="search" placeholder="搜尋框框或筆記…" aria-label="搜尋">
+    <button class="tbtn" id="exportBtn">匯出筆記</button>
+    <button class="tbtn" id="importBtn">匯入筆記</button>
+    <input type="file" id="importFile" accept="application/json" hidden>
+    <span class="hint">點任一方框即可撰寫筆記</span>
+  </div>
+</header>
+
+<div id="viewport">
+  <div id="scaler">
+    <div id="canvas">
+      <svg id="wires" width="1120" height="1560" aria-hidden="true">
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7.5" markerHeight="7.5" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="#2b2b2b"></path>
+          </marker>
+        </defs>
+        <g id="wireGroup" fill="none" stroke="#2b2b2b" stroke-width="2"></g>
+      </svg>
+
+      <div class="chart-title">人力資源管理體系架構圖</div>
+      <div class="chart-credit">
+        張瑞明&ensp;Copyright © 2016 年版<br>
+        中華人力資源管理協會<br>
+        <span style="padding-left:2.5em">常務顧問&ensp;張瑞明</span>
+      </div>
+      <!-- 分區、徽章、方框由 JS 依資料產生 -->
+    </div>
+  </div>
+</div>
+
+<!-- 筆記視窗 -->
+<div id="overlay" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+  <div id="modal">
+    <div class="mhead">
+      <span class="zonechip" id="mZone">分區</span>
+      <h2 id="mTitle">標題</h2>
+      <button class="mclose" id="mClose" aria-label="關閉">✕</button>
+    </div>
+    <div class="mbody">
+      <div class="mtips">在下方輸入這個主題的學習重點、定義、流程、案例、法規、心得……內容會自動儲存在這台裝置的瀏覽器中。要同步到其他裝置，請用上方「匯出筆記」→ 在另一台裝置「匯入筆記」。</div>
+      <textarea id="noteArea" placeholder="開始建立你的知識筆記…"></textarea>
+    </div>
+    <div class="mfoot">
+      <button class="primary" id="saveBtn">儲存筆記</button>
+      <button class="ghost" id="clearBtn">清除此筆記</button>
+      <span id="saveState"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   資料：方框（依原圖位置排版）
+   lines: 文字列；b:true 表示原圖中的粗體列
+============================================================ */
+const BOXES = [
+ // ② 職能管理 / ① 策略管理
+ {id:"core_value",   x:278,y:198,w:132,h:72, zone:"② 職能管理", lines:[{t:"核心價值"},{t:"經營理念"}]},
+ {id:"mission",      x:478,y:196,w:140,h:74, zone:"① 策略管理", lines:[{t:"組織使命"},{t:"組織願景"}]},
+ {id:"comp_model",   x:278,y:306,w:132,h:72, zone:"② 職能管理", lines:[{t:"職能模型"},{t:"職能管理"}]},
+ {id:"strategy_map", x:478,y:306,w:140,h:72, zone:"① 策略管理", lines:[{t:"策略地圖"},{t:"平衡計分卡"}]},
+
+ // ④ 組織設計 / ⑤ 工作設計
+ {id:"org_analysis", x:640,y:468,w:110,h:70, zone:"④ 組織設計", lines:[{t:"組織分析"},{t:"組織設計"}]},
+ {id:"org_structure",x:640,y:558,w:110,h:70, zone:"④ 組織設計", lines:[{t:"組織架構"},{t:"部門職掌"}]},
+ {id:"job_analysis", x:640,y:668,w:110,h:70, zone:"⑤ 工作設計", lines:[{t:"工作分析"},{t:"工作設計"}]},
+ {id:"job_spec",     x:640,y:778,w:110,h:70, zone:"⑤ 工作設計", lines:[{t:"工作說明書"},{t:"工作規範"}]},
+
+ // ③ 績效管理
+ {id:"mbo",          x:56, y:600,w:112,h:46, zone:"③ 績效管理", lines:[{t:"目標管理"}]},
+ {id:"perf_review",  x:46, y:692,w:112,h:46, zone:"③ 績效管理", lines:[{t:"績效評核"}]},
+ {id:"perf_talk",    x:50, y:784,w:112,h:46, zone:"③ 績效管理", lines:[{t:"績效面談"}]},
+
+ // ⑧ 人力資源規劃
+ {id:"hr_planning",  x:230,y:602,w:140,h:42, zone:"⑧ 人力資源規劃", lines:[{t:"人力資源規劃"}]},
+ {id:"manpower",     x:424,y:600,w:112,h:46, zone:"⑧ 人力資源規劃", lines:[{t:"人力盤點"}]},
+
+ // ⑨ 任用管理
+ {id:"recruit",      x:236,y:690,w:130,h:44, zone:"⑨ 任用管理", lines:[{t:"求才、選才"}]},
+ {id:"hire",         x:236,y:792,w:130,h:44, zone:"⑨ 任用管理", lines:[{t:"雇用、導入"}]},
+ {id:"outplace",     x:436,y:756,w:112,h:50, zone:"⑨ 任用管理（安置）", lines:[{t:"向外安置"}]},
+
+ // ⑩ 訓練發展
+ {id:"dev_plan",     x:40, y:878,w:132,h:62, zone:"⑩ 訓練發展", lines:[{t:"員工發展計畫"},{t:"職涯發展計畫"}]},
+ {id:"annual_train", x:40, y:954,w:132,h:58, zone:"⑩ 訓練發展", lines:[{t:"年度訓練計畫"},{t:"訓練學習",b:true}]},
+ {id:"train_system", x:40, y:1028,w:132,h:70, zone:"⑩ 訓練發展", lines:[{t:"訓練體系"},{t:"階層別訓練",b:true},{t:"功能別訓練",b:true}]},
+ {id:"career_path",  x:44, y:1112,w:126,h:60, zone:"⑩ 訓練發展", lines:[{t:"前程路徑"},{t:"升遷制度"}]},
+ {id:"inplace",      x:246,y:950,w:126,h:58, zone:"⑩ 訓練發展", lines:[{t:"向內安置"},{t:"經驗學習",b:true}]},
+ {id:"coaching",     x:248,y:1036,w:126,h:58, zone:"⑩ 訓練發展", lines:[{t:"工作教導"},{t:"人脈學習"}]},
+
+ // ⑥ 薪酬管理
+ {id:"job_eval",     x:572,y:920,w:110,h:46, zone:"⑥ 薪酬管理", lines:[{t:"工作評價"}]},
+ {id:"pay_survey",   x:706,y:920,w:110,h:46, zone:"⑥ 薪酬管理", lines:[{t:"薪資調查"}]},
+ {id:"pay_structure",x:640,y:1036,w:112,h:46, zone:"⑥ 薪酬管理", lines:[{t:"薪資架構"}]},
+ {id:"pay_policy",   x:818,y:1034,w:192,h:46, zone:"⑥ 薪酬管理", lines:[{t:"薪酬政策/薪酬制度"}]},
+ {id:"merit_pay",    x:644,y:1122,w:104,h:62, zone:"⑥ 薪酬管理", lines:[{t:"績效調薪"},{t:"保證所得",b:true}]},
+ {id:"incentive",    x:766,y:1122,w:104,h:62, zone:"⑥ 薪酬管理", lines:[{t:"獎工制度"},{t:"變動所得",b:true}]},
+ {id:"labor_ins",    x:884,y:1122,w:98, h:62, zone:"⑦ 福利管理", lines:[{t:"勞健保與"},{t:"勞退"}]},
+ {id:"welfare_com",  x:998,y:1122,w:100,h:62, zone:"⑦ 福利管理", lines:[{t:"職工福利"},{t:"委員會"}]},
+ {id:"attendance",   x:572,y:1240,w:108,h:44, zone:"⑥ 薪酬管理", lines:[{t:"考勤管理"}]},
+ {id:"payroll",      x:772,y:1236,w:110,h:48, zone:"⑥ 薪酬管理", lines:[{t:"薪資結算"}]},
+ {id:"emp_service",  x:1002,y:1250,w:96,h:44, zone:"⑦ 福利管理", lines:[{t:"員工服務"}]},
+
+ // ⑪ 員工關係
+ {id:"work_env",     x:202,y:1214,w:126,h:58, zone:"⑪ 員工關係", lines:[{t:"工作環境"},{t:"安全衛生"}]},
+ {id:"emp_relation", x:360,y:1210,w:126,h:58, zone:"⑪ 員工關係", lines:[{t:"員工關係"},{t:"勞資關係"}]},
+
+ // ⑫ 離職管理與留才對策
+ {id:"retention",    x:364,y:1342,w:116,h:44, zone:"⑫ 離職管理與留才對策", lines:[{t:"留才對策"}]},
+ {id:"resignation",  x:364,y:1430,w:116,h:44, zone:"⑫ 離職管理與留才對策", lines:[{t:"離職管理"}]},
+];
+
+/* 分區虛線框（近似原圖）與標籤、編號徽章 */
+const ZONES = [
+ {x:240,y:186,w:200,h:212, label:"職能管理", lx:252,ly:376},
+ {x:452,y:186,w:180,h:212, label:"策略管理", lx:508,ly:376},
+ {x:566,y:440,w:534,h:206, label:"組織設計", lx:792,ly:448},
+ {x:566,y:648,w:534,h:216, label:"工作設計", lx:792,ly:656},
+ {x:26, y:560,w:180,h:300, label:"績效管理", lx:32, ly:566},
+ {x:208,y:560,w:352,h:100, label:"人力資源規劃", lx:218,ly:566},
+ {x:208,y:664,w:352,h:200, label:"任用管理", lx:256,ly:748},
+ {x:26, y:866,w:534,h:322, label:"訓練發展", lx:266,ly:1148},
+ {x:566,y:866,w:306,h:436, label:"薪酬管理", lx:586,ly:900},
+ {x:874,y:866,w:226,h:436, label:"福利管理", lx:988,ly:900},
+ {x:26, y:1194,w:534,h:112, label:"員工關係", lx:56, ly:1266},
+ {x:26, y:1312,w:534,h:186, label:"離職管理與留才對策", lx:34,ly:1416},
+];
+
+const BADGES = [
+ {n:"1", x:712,y:312},{n:"2", x:196,y:312},{n:"3", x:64,y:512},{n:"4", x:828,y:518},
+ {n:"5", x:828,y:756},{n:"6", x:598,y:958},{n:"7", x:1022,y:958},{n:"8", x:326,y:512},
+ {n:"9", x:330,y:756},{n:"10",x:340,y:1104},{n:"11",x:84,y:1244},{n:"12",x:96,y:1382},
+];
+
+/* 箭頭連線（依原圖主要流程走向）head: 'end' | 'both' */
+const WIRES = [
+ // 頂層：使命願景 → 核心價值；往下展開
+ {pts:[[478,233],[412,233]]},                       // 組織使命 → 核心價值
+ {pts:[[548,270],[548,306]]},                       // 組織使命 → 策略地圖/BSC
+ {pts:[[344,270],[344,306]]},                       // 核心價值 → 職能模型
+ // 策略地圖往下的主幹與分配線
+ {pts:[[548,378],[548,430]], head:"none"},
+ {pts:[[112,430],[920,430]], head:"none"},          // 水平分配線
+ {pts:[[112,430],[112,600]]},                       // → 目標管理
+ {pts:[[300,430],[300,602]]},                       // → 人力資源規劃
+ {pts:[[480,430],[480,600]]},                       // → 人力盤點
+ {pts:[[695,430],[695,468]]},                       // → 組織分析
+ {pts:[[920,430],[920,1010],[914,1010],[914,1034]]},// 右側幹線 → 薪酬政策/薪酬制度
+ // 組織設計 → 工作設計
+ {pts:[[695,538],[695,558]]},
+ {pts:[[695,628],[695,668]]},
+ {pts:[[695,738],[695,778]]},
+ // 工作說明書 → 薪酬（工作評價、薪資調查）
+ {pts:[[695,848],[695,894],[627,894],[627,920]]},
+ {pts:[[695,894],[761,894],[761,920]]},
+ // 工作說明書 → 往左（任用/訓練，作為選才與訓練依據）
+ {pts:[[640,858],[214,858]]},
+ // 工作評價 + 薪資調查 → 薪資架構
+ {pts:[[627,966],[627,1006],[696,1006],[696,1036]]},
+ {pts:[[761,966],[761,1006],[696,1006]], head:"none"},
+ // 薪酬政策 → 薪資架構
+ {pts:[[818,1057],[752,1057]]},
+ // 薪資架構 → 績效調薪 / 獎工制度
+ {pts:[[696,1082],[696,1122]]},
+ {pts:[[696,1100],[818,1100],[818,1122]]},
+ // 薪酬政策 → 勞健保與勞退 / 職工福利委員會
+ {pts:[[914,1080],[914,1100],[933,1100],[933,1122]]},
+ {pts:[[914,1100],[1048,1100],[1048,1122]]},
+ // → 薪資結算
+ {pts:[[696,1184],[696,1218],[800,1218],[800,1236]]},   // 績效調薪 →
+ {pts:[[818,1184],[827,1184],[827,1236]]},              // 獎工制度 →
+ {pts:[[933,1184],[933,1218],[856,1218],[856,1236]]},   // 勞健保 →
+ {pts:[[680,1262],[772,1262]]},                         // 考勤管理 →
+ // 職工福利委員會 → 員工服務
+ {pts:[[1048,1184],[1050,1250]]},
+ // 目標管理 ↔ 人力資源規劃
+ {pts:[[168,623],[230,623]], head:"both"},
+ // 績效管理鏈
+ {pts:[[104,646],[104,692]]},
+ {pts:[[104,738],[104,784]]},
+ {pts:[[104,830],[104,878]]},                          // 績效面談 → 員工發展計畫
+ // 人力資源規劃 → 人力盤點、求才選才
+ {pts:[[370,622],[424,622]]},
+ {pts:[[300,644],[300,690]]},
+ {pts:[[300,734],[300,792]]},                          // 求才選才 → 雇用導入
+ // 雇用導入 → 向內安置 → 工作教導
+ {pts:[[302,836],[302,950]]},
+ {pts:[[309,1008],[309,1036]]},
+ // 訓練發展鏈
+ {pts:[[106,940],[106,954]]},
+ {pts:[[106,1012],[106,1028]]},
+ {pts:[[106,1098],[106,1112]]},
+ // 人力盤點 → 向外安置；下方回流 → 向外安置
+ {pts:[[490,646],[490,756]]},
+ {pts:[[492,1194],[492,808]]},                         // 由下而上（留才/離職回流）
+ // 離職管理 → 留才對策 → 員工關係
+ {pts:[[422,1430],[422,1386]]},
+ {pts:[[422,1342],[422,1268]]},
+];
+
+/* ============================================================
+   繪製
+============================================================ */
+const canvas = document.getElementById("canvas");
+const wireGroup = document.getElementById("wireGroup");
+
+ZONES.forEach(z=>{
+  const d=document.createElement("div");
+  d.className="zone";
+  d.style.cssText=`left:${z.x}px;top:${z.y}px;width:${z.w}px;height:${z.h}px;`;
+  canvas.appendChild(d);
+  const l=document.createElement("div");
+  l.className="zone-label"; l.textContent=z.label;
+  l.style.cssText=`left:${z.lx}px;top:${z.ly}px;`;
+  canvas.appendChild(l);
+});
+
+BADGES.forEach(b=>{
+  const d=document.createElement("div");
+  d.className="badge"; d.textContent=b.n;
+  d.style.cssText=`left:${b.x}px;top:${b.y}px;`;
+  canvas.appendChild(d);
+});
+
+WIRES.forEach(w=>{
+  const p=document.createElementNS("http://www.w3.org/2000/svg","polyline");
+  p.setAttribute("points", w.pts.map(pt=>pt.join(",")).join(" "));
+  if(w.head!=="none") p.setAttribute("marker-end","url(#arr)");
+  if(w.head==="both") p.setAttribute("marker-start","url(#arr)");
+  wireGroup.appendChild(p);
+});
+
+const NOTE_KEY="hr_map_notes_v1";
+let notes={};
+try{ notes=JSON.parse(localStorage.getItem(NOTE_KEY)||"{}"); }catch(e){ notes={}; }
+
+const nodeEls={};
+BOXES.forEach(b=>{
+  const d=document.createElement("div");
+  d.className="node"; d.tabIndex=0; d.setAttribute("role","button");
+  d.dataset.id=b.id;
+  d.style.cssText=`left:${b.x}px;top:${b.y}px;width:${b.w}px;height:${b.h}px;`;
+  d.innerHTML = b.lines.map(l=>`<span class="${l.b?'b':''}">${l.t}</span>`).join("")
+              + `<span class="dot" aria-hidden="true"></span>`;
+  d.setAttribute("aria-label", b.lines.map(l=>l.t).join("") + "，點擊開啟筆記");
+  d.addEventListener("click",()=>openModal(b));
+  d.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){e.preventDefault();openModal(b);} });
+  canvas.appendChild(d);
+  nodeEls[b.id]=d;
+  refreshDot(b.id);
+});
+
+function refreshDot(id){
+  nodeEls[id].classList.toggle("has-note", !!(notes[id]&&notes[id].trim()));
+}
+
+/* ============================================================
+   筆記視窗
+============================================================ */
+const overlay=document.getElementById("overlay");
+const mTitle=document.getElementById("mTitle");
+const mZone=document.getElementById("mZone");
+const noteArea=document.getElementById("noteArea");
+const saveState=document.getElementById("saveState");
+let currentId=null, autoTimer=null;
+
+function openModal(b){
+  currentId=b.id;
+  mTitle.textContent=b.lines.map(l=>l.t).join("／");
+  mZone.textContent=b.zone;
+  noteArea.value=notes[b.id]||"";
+  saveState.textContent="";
+  overlay.classList.add("open");
+  setTimeout(()=>noteArea.focus(),60);
+}
+function closeModal(){
+  overlay.classList.remove("open");
+  currentId=null;
+}
+function saveNote(silent){
+  if(!currentId) return;
+  notes[currentId]=noteArea.value;
+  localStorage.setItem(NOTE_KEY, JSON.stringify(notes));
+  refreshDot(currentId);
+  saveState.textContent= silent ? "已自動儲存 ✓" : "已儲存 ✓";
+}
+noteArea.addEventListener("input",()=>{
+  clearTimeout(autoTimer);
+  autoTimer=setTimeout(()=>saveNote(true),800);
+});
+document.getElementById("saveBtn").addEventListener("click",()=>saveNote(false));
+document.getElementById("clearBtn").addEventListener("click",()=>{
+  if(!currentId) return;
+  if(confirm("確定要清除這個框框的筆記嗎？")){
+    noteArea.value=""; saveNote(false);
+  }
+});
+document.getElementById("mClose").addEventListener("click",()=>{saveNote(true);closeModal();});
+overlay.addEventListener("click",e=>{ if(e.target===overlay){saveNote(true);closeModal();} });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"&&overlay.classList.contains("open")){saveNote(true);closeModal();} });
+
+/* ============================================================
+   搜尋（比對框框文字與筆記內容）
+============================================================ */
+document.getElementById("searchInput").addEventListener("input",e=>{
+  const q=e.target.value.trim();
+  BOXES.forEach(b=>{
+    const el=nodeEls[b.id];
+    el.classList.remove("hit","dim");
+    if(!q) return;
+    const text=b.lines.map(l=>l.t).join("")+(notes[b.id]||"");
+    if(text.includes(q)) el.classList.add("hit"); else el.classList.add("dim");
+  });
+});
+
+/* ============================================================
+   匯出 / 匯入（跨裝置同步筆記）
+============================================================ */
+document.getElementById("exportBtn").addEventListener("click",()=>{
+  const blob=new Blob([JSON.stringify(notes,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  const d=new Date(), pad=n=>String(n).padStart(2,"0");
+  a.download=`HR學習筆記_${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}.json`;
+  a.click(); URL.revokeObjectURL(a.href);
+});
+document.getElementById("importBtn").addEventListener("click",()=>document.getElementById("importFile").click());
+document.getElementById("importFile").addEventListener("change",e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const data=JSON.parse(r.result);
+      if(typeof data!=="object"||Array.isArray(data)) throw 0;
+      notes={...notes,...data};
+      localStorage.setItem(NOTE_KEY,JSON.stringify(notes));
+      BOXES.forEach(b=>refreshDot(b.id));
+      alert("筆記匯入完成！");
+    }catch(err){ alert("檔案格式不正確，請選擇先前匯出的 JSON 筆記檔。"); }
+  };
+  r.readAsText(f); e.target.value="";
+});
+
+/* ============================================================
+   縮放
+============================================================ */
+let scale=1;
+const scaler=document.getElementById("scaler");
+function applyScale(){
+  scaler.style.transform=`scale(${scale})`;
+  scaler.style.width=(1120*scale)+"px";
+  scaler.style.height=(1560*scale)+"px";
+}
+document.getElementById("zoomIn").addEventListener("click",()=>{scale=Math.min(2,scale+0.1);applyScale();});
+document.getElementById("zoomOut").addEventListener("click",()=>{scale=Math.max(0.3,scale-0.1);applyScale();});
+function fitWidth(){
+  const vw=document.getElementById("viewport").clientWidth;
+  scale=Math.min(1.6, Math.max(0.3,(vw-8)/1120));
+  applyScale();
+}
+document.getElementById("zoomFit").addEventListener("click",fitWidth);
+window.addEventListener("resize",()=>{ /* 保留使用者縮放，不自動改變 */ });
+fitWidth();
+</script>
+</body>
+</html>
